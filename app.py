@@ -25,34 +25,25 @@ st.set_page_config(
 # تنظیمات هوش مصنوعی
 # =========================================================
 
-AI_API_KEY = "1xai-f2wfQtVkSEYgCpFjvTOnr27MTQa51eC3IAcWgQkkl40"
-#"1xai-rCHeJx2q4xOwh3fSnLp12eCRzmwRqBe6Ipvo25JQM4o"
+AI_API_KEY = os.environ.get("AI_API_KEY", "")
 AI_BASE_URL = "https://1xai.ir/v1"
 AI_MODEL = "gpt-4o-mini"
 AI_MODEL_REWRITE = "gpt-4o-mini"
 
-# AI_API_KEY = "aEY9FpS_kDtR_LMOh2qq3iAO5vFnEW3McW1G13BPn2g"
-# AI_BASE_URL = "https://ai.parspack.com/v1/"
-# AI_MODEL = "openai/gpt-4o-mini-2024-07-18"
-# AI_MODEL_REWRITE = "openai/gpt-4o-mini-2024-07-18"
+# =========================================================
+# تنظیمات مسیرها (یک‌بار برای همیشه - Path-based)
+# =========================================================
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PDF_FOLDER = os.path.join(BASE_DIR, "PDFs")
+BASE_DIR = Path(__file__).resolve().parent
+PDF_FOLDER = BASE_DIR / "PDFs"
 
 # =========================================================
 # تابع تبدیل تصویر به Base64
 # =========================================================
 
-import os
-from pathlib import Path
-import base64
-
-BASE_DIR = Path(__file__).resolve().parent
-
 def get_base64_image(image_path):
-    # نام فایل را از مسیر جدا کن (چون ممکن است مسیر ویندوزی باشد)
-    filename = os.path.basename(image_path.replace("\\", "/"))
-    
+    filename = os.path.basename(str(image_path).replace("\\", "/"))
+
     possible_paths = [
         BASE_DIR / filename,
         BASE_DIR / "assets" / filename,
@@ -63,24 +54,17 @@ def get_base64_image(image_path):
         Path.cwd() / "background.jpg",
         Path.cwd() / "background.png",
     ]
-    
-    for path in possible_paths:
-        if path.exists() and path.is_file():
-            with open(path, "rb") as f:
-                return base64.b64encode(f.read()).decode("utf-8")
-    
-    # اگر هیچ‌کدام پیدا نشد، لاگ بده
-    print(f"⚠️ تصویر پیدا نشد. مسیرهای بررسی‌شده: {possible_paths}")
-    return ""
+
     for path in possible_paths:
         if path.exists() and path.is_file():
             try:
                 with open(path, "rb") as f:
-                    data = f.read()
-                return base64.b64encode(data).decode()
-            except Exception:
-                return None
-    return None
+                    return base64.b64encode(f.read()).decode("utf-8")
+            except Exception as e:
+                print(f"⚠️ خطا در خواندن {path}: {e}")
+
+    print(f"⚠️ تصویر پیدا نشد. مسیرهای بررسی‌شده: {possible_paths}")
+    return ""
 
 # =========================================================
 # مدیریت صفحات
@@ -216,7 +200,6 @@ st.markdown("""
 VILLAGE_FILE = "1405.6.22-12_55_39.xlsx"
 USO_FILE = "ورژن2-ابلاغ های انجام شده از ابتدای سال 1401.xlsx"
 
-# ✅ فقط شیت ابلاغی-هدف باقی مانده است
 SHEETS = [
     "ابلاغی-هدف"
 ]
@@ -244,24 +227,40 @@ def normalize_text(value):
 def load_pdf_documents():
     documents = []
     filenames = []
+
     if not PDF_FOLDER.exists():
+        print(f"❌ پوشه {PDF_FOLDER} وجود ندارد")
         return [], []
-    for filename in os.listdir(PDF_FOLDER):
-        if filename.lower().endswith(".pdf"):
-            filepath = PDF_FOLDER / filename
-            try:
-                reader = PdfReader(str(filepath))
-                text = ""
-                for page in reader.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\n"
-                text = re.sub(r'\s+', ' ', text).strip()
-                if text:
-                    documents.append(text)
-                    filenames.append(filename)
-            except Exception as e:
-                print(f"خطا در خواندن فایل {filename}: {e}")
+
+    pdf_files = sorted(PDF_FOLDER.glob("*.pdf"))
+
+    if not pdf_files:
+        print(f"❌ هیچ PDF در {PDF_FOLDER} پیدا نشد")
+        try:
+            print(f"📂 محتویات پوشه: {list(PDF_FOLDER.iterdir())}")
+        except Exception:
+            pass
+        return [], []
+
+    print(f"✅ {len(pdf_files)} فایل PDF پیدا شد:")
+    for f in pdf_files:
+        print(f"   - {f.name}")
+
+    for filepath in pdf_files:
+        try:
+            reader = PdfReader(str(filepath))
+            text = ""
+            for page in reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+            text = re.sub(r'\s+', ' ', text).strip()
+            if text:
+                documents.append(text)
+                filenames.append(filepath.name)
+        except Exception as e:
+            print(f"⚠️ خطا در خواندن {filepath.name}: {e}")
+
     return documents, filenames
 
 def chunk_text(text, chunk_size=600, overlap=150):
@@ -539,7 +538,6 @@ def village_page():
 
     st.info("ابتدا روستا / آبادی، سپس شهرستان و در نهایت دهستان را انتخاب کنید.")
 
-    # گام ۱: انتخاب روستا / آبادی
     villages = sorted([x for x in df["روستا_جستجو"].unique() if x != ""])
     selected_village = st.selectbox(
         "🏘️ روستا / آبادی را انتخاب کنید:",
@@ -549,7 +547,6 @@ def village_page():
     if selected_village != "انتخاب کنید...":
         village_data = df[df["روستا_جستجو"] == selected_village]
 
-        # گام ۲: انتخاب شهرستان
         cities = sorted([x for x in village_data["شهرستان_جستجو"].unique() if x != ""])
 
         if len(cities) == 1:
@@ -564,7 +561,6 @@ def village_page():
         if selected_city != "انتخاب کنید...":
             city_data = village_data[village_data["شهرستان_جستجو"] == selected_city]
 
-            # گام ۳: انتخاب دهستان
             dehestans = sorted([x for x in city_data["دهستان_جستجو"].unique() if x != ""])
 
             if len(dehestans) == 1:
@@ -604,7 +600,7 @@ def village_page():
                     st.error("❌ اطلاعاتی برای این روستا پیدا نشد.")
 
 # =========================================================
-# صفحه پروژه های USO (فقط شیت ابلاغی-هدف، جستجو: شهرستان و آبادی)
+# صفحه پروژه های USO
 # =========================================================
 
 def uso_page():
@@ -623,7 +619,6 @@ def uso_page():
     def load_uso_data():
         data = {}
         for sheet in SHEETS:
-            # ✅ هدر در ردیف دوم برای شیت ابلاغی-هدف
             header = 1 if sheet in SHEETS_HEADER_ROW_1 else 0
             try:
                 df = pd.read_excel(USO_FILE, sheet_name=sheet, header=header)
@@ -642,7 +637,6 @@ def uso_page():
         with st.expander(f"📁 {sheet_name}", expanded=True):
             st.markdown(f"## 📁 {sheet_name}")
 
-            # ✅ پیدا کردن ستون‌های موردنیاز
             city_col = find_column(df, ["شهرستان", "District"])
             if city_col is None:
                 city_col = find_column_flexible(df, ["شهرستان"])
@@ -661,9 +655,6 @@ def uso_page():
                 st.info(f"📋 ستون‌های موجود: {list(df.columns)}")
                 continue
 
-            # =================================================
-            # گام ۱: انتخاب شهرستان
-            # =================================================
             cities = sorted([
                 x for x in
                 df[city_col].dropna().apply(normalize_text).unique()
@@ -681,9 +672,6 @@ def uso_page():
                     df[city_col].apply(normalize_text) == selected_city
                 ]
 
-                # =================================================
-                # گام ۲: انتخاب آبادی
-                # =================================================
                 villages = sorted([
                     x for x in
                     city_data[village_col].dropna().apply(normalize_text).unique()
