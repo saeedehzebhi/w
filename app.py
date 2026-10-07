@@ -37,7 +37,7 @@ AI_MODEL_REWRITE = "gpt-4o-mini"
 # AI_MODEL_REWRITE = "openai/gpt-4o-mini-2024-07-18"
 
 
-PDF_FOLDER = PDFs/
+PDF_FOLDER = "PDFs"
 
 # =========================================================
 # تابع تبدیل تصویر به Base64
