@@ -43,15 +43,35 @@ PDF_FOLDER = os.path.join(BASE_DIR, "PDFs")
 # تابع تبدیل تصویر به Base64
 # =========================================================
 
+import os
+from pathlib import Path
+import base64
+
+BASE_DIR = Path(__file__).resolve().parent
+
 def get_base64_image(image_path):
+    # نام فایل را از مسیر جدا کن (چون ممکن است مسیر ویندوزی باشد)
+    filename = os.path.basename(image_path.replace("\\", "/"))
+    
     possible_paths = [
-        Path(image_path),
-        BASE_DIR / image_path,
-        BASE_DIR / "assets" / "background.jpg",
+        BASE_DIR / filename,
+        BASE_DIR / "assets" / filename,
         BASE_DIR / "background.jpg",
         BASE_DIR / "background.png",
-        Path.cwd() / image_path,
+        Path.cwd() / filename,
+        Path.cwd() / "assets" / filename,
+        Path.cwd() / "background.jpg",
+        Path.cwd() / "background.png",
     ]
+    
+    for path in possible_paths:
+        if path.exists() and path.is_file():
+            with open(path, "rb") as f:
+                return base64.b64encode(f.read()).decode("utf-8")
+    
+    # اگر هیچ‌کدام پیدا نشد، لاگ بده
+    print(f"⚠️ تصویر پیدا نشد. مسیرهای بررسی‌شده: {possible_paths}")
+    return ""
     for path in possible_paths:
         if path.exists() and path.is_file():
             try:
@@ -355,7 +375,7 @@ def back_button():
 # =========================================================
 
 def home_page():
-    bg_base64 = get_base64_image("C:/Users/AllUser/Desktop/ICT-streamlit/background.png")
+    bg_base64 = get_base64_image("background.png")
     if bg_base64:
         st.markdown(f"""
         <style>
