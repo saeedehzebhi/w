@@ -36,8 +36,8 @@ AI_MODEL_REWRITE = "gpt-4o-mini"
 # AI_MODEL = "openai/gpt-4o-mini-2024-07-18"
 # AI_MODEL_REWRITE = "openai/gpt-4o-mini-2024-07-18"
 
-
-PDF_FOLDER = "PDFs"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PDF_FOLDER = os.path.join(BASE_DIR, "PDFs")
 
 # =========================================================
 # تابع تبدیل تصویر به Base64
